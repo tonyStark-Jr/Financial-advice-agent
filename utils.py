@@ -19,6 +19,7 @@ def get_price_data(
     ticker: Ticker, time_frame: TimeFrame = TimeFrame.DAILY
 ) -> pd.DataFrame:
     # print(f"ticker is {ticker.name}")
+    # print("name of ticker is" + ticker.name)
     df = obb.obb.crypto.price.historical(
         symbol=f"{ticker.name}INR", start_date="2010-01-01"
     )
@@ -27,7 +28,7 @@ def get_price_data(
     df = df[["date", "open", "high", "low", "close", "volume"]].set_index("date")
     if time_frame == TimeFrame.DAILY:
         return df
-    print(df)
+
     interval = "W" if time_frame == TimeFrame.WEEKLY else "M"
     return df.resample(interval).agg(
         {"high": "max", "low": "min", "close": "last", "volume": "sum"}

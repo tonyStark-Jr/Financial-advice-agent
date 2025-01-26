@@ -49,4 +49,5 @@ top_crypto_dict = {
     "INJ": "Injective",
     "GRT": "The Graph",
     "QNT": "Quant",
+    "NoCoin": "NoCoin",
 }

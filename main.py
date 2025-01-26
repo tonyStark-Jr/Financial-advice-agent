@@ -5,7 +5,12 @@ import textwrap
 from langgraph.graph import END, StateGraph
 from langchain_groq import ChatGroq
 from openbb import obb
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
+from duckduckgo_search import DDGS
+from langgraph.prebuilt import tools_condition, ToolNode
+import warnings
+
+warnings.filterwarnings("ignore")
 
 load_dotenv()
 
@@ -13,9 +18,13 @@ from utils import *
 from consts import *
 from classes import *
 
-MODEL = "llama-3.3-70b-versatile"
+MODEL = "llama-3.1-8b-instant"
 
-llm = ChatGroq(temperature=0, model_name=MODEL, api_key=os.environ.get("GROQ_API_KEY"))
+llm = ChatGroq(
+    temperature=0,
+    model_name=MODEL,
+    api_key=os.environ.get("GROQ_API_KEY"),
+)
 obb.obb.account.login(pat=os.environ.get("OPENBB_API_KEY"))
 # obb.user.credentials.orats_api_key = os.environ.get("OPENBB_API_KEY")
 obb.obb.user.preferences.output_type = "dataframe"
@@ -30,6 +39,7 @@ def ticker_extractor(state: AppState):
     Returns:
         A dictionary with the extracted ticker symbol.
     """
+
     ticker_extractor_llm = llm.with_structured_output(TickerQuery)
     extraction = ticker_extractor_llm.invoke([HumanMessage(state["user_query"])])
     return {"ticker": Ticker[extraction.ticker]}
@@ -184,41 +194,110 @@ When creating your answer, focus on answering the user query:
     return {"final_report": response}
 
 
-graph = StateGraph(AppState)
+# @tool(args_schema=SliderInput)
+def search(keyword: str) -> str:
+    """
+    Searches the web for the given keyword and retrieves both general search results
+    and news articles.
 
+    Args:
+        keyword (str): The search query string.
 
-# Node
-def reasoner(state):
-    query = state["query"]
-    messages = state["messages"]
-    # System message
-    sys_msg = SystemMessage(
-        content="You are a helpful assistant tasked with using search, the yahoo finance tool and performing arithmetic on a set of inputs."
+    Returns:
+        str: A combined string of general search results and recent news articles
+             related to the query.
+
+    Notes:
+        - General search results are fetched with a one-year time limit.
+        - News articles are fetched with a one-month time limit.
+        - Both searches have safesearch disabled and a maximum of 10 results each.
+    """
+    results_text = results = DDGS().text(
+        keyword, safesearch="off", timelimit="y", max_results=10
     )
-    message = HumanMessage(content=query)
-    messages.append(message)
-    result = [llm_with_tools.invoke([sys_msg] + messages)]
-    return {"messages": result}
+    results_news = DDGS().news(
+        keywords=keyword, safesearch="off", timelimit="m", max_results=10
+    )
+
+    return str(results_text) + str(results_news)
 
 
-graph.add_node("reasoner", reasoner)
+graph = StateGraph(AppState)
+graph.support_multiple_edges = True
+
+
+def ticker_check(state: AppState):
+    if (
+        state["ticker"].name in top_crypto_dict.keys()
+        and state["ticker"].name != "NoCoin"
+    ):
+        return "yes"
+    else:
+        return "no"
+
+
+def final_answer(state: AppState):
+    print("Final State reached")
+    if ticker_check(state) == "no":
+        print("I am here at no")
+        prompt = f"""You are an expert financial advisor with deep expertise in personal finance, investments, budgeting, taxation, and financial planning. Your goal is to provide precise, actionable, and reliable advice tailored to users' specific financial situations. Ensure your answers are accurate and relevant.
+
+        If you do not know the answer to a question or if the query is unrelated to your expertise, humbly deny it and explain that you cannot provide an answer in that case. When providing advice, clearly communicate any risks, uncertainties, or potential downsides involved to help users make informed decisions. Always strive to answer the user's query in a clear, professional, and trustworthy manner.
+        
+        
+        """
+    else:
+        print("hey we are here")
+        prompt = f"""
+        You are an expert financial advisor with deep expertise in personal finance, investments, budgeting, taxation, and financial planning. Your goal is to provide precise, actionable, and reliable advice tailored to users' specific financial situations. Ensure your answers are accurate and relevant.
+
+Additionally, there are pre-generated reports stored in variables that you should refer to when answering the user's query:
+	•	News Analyst Report: {state["news_analyst_report"]}
+	•	Price Analyst Report: {state["price_analyst_report"]}
+	•	Financial Report: {state["final_report"]}
+
+Refer to these reports, if available, to ensure your responses are well-informed and data-driven.
+
+If you do not know the answer to a question, if the query is unrelated to your expertise, or if there is insufficient information to provide an informed response, humbly deny it and explain why. When giving advice, always clearly communicate any risks, uncertainties, or potential downsides involved to help users make informed decisions. Strive to deliver clear, professional, and trustworthy responses to every query.
+        
+        """
+
+    sys_message = SystemMessage(content=prompt)
+
+    result = [llm.invoke([sys_message] + [HumanMessage(state["user_query"])])]
+
+    return {"final_response": (result)}
+
+
 graph.add_node("ticker_extractor", ticker_extractor)
 graph.add_node("news_retriever", news_retriever)
 graph.add_node("price_retriever", price_retriever)
 graph.add_node("price_analyst", price_analyst)
 graph.add_node("news_analyst", news_analyst)
 graph.add_node("financial_reporter", financial_reporter)
-
-graph.add_edge("ticker_extractor", "price_retriever")
-graph.add_edge("ticker_extractor", "news_retriever")
-graph.add_edge("news_retriever", "news_analyst")
+graph.add_node("final_answer", final_answer)
+# graph.add_node("tools", ToolNode([search]))
+graph.add_conditional_edges(
+    "ticker_extractor",
+    ticker_check,
+    {"yes": "price_retriever", "no": "final_answer"},
+)
+# graph.add_conditional_edges(
+#     "final_answer",
+#     # If the latest message (result) from node reasoner is a tool call -> tools_condition routes to tools
+#     # If the latest message (result) from node reasoner is a not a tool call -> tools_condition routes to END
+#     tools_condition,
+# )
+# graph.add_edge("tools", "final_answer")
 graph.add_edge("price_retriever", "price_analyst")
-graph.add_edge("price_analyst", "financial_reporter")
+graph.add_edge("price_analyst", "news_retriever")
+graph.add_edge("news_retriever", "news_analyst")
 graph.add_edge("news_analyst", "financial_reporter")
+graph.add_edge("financial_reporter", "final_answer")
 
 
 graph.set_entry_point("ticker_extractor")
-graph.set_finish_point("financial_reporter")
+graph.set_finish_point("final_answer")
 app = graph.compile()
 
 
@@ -232,42 +311,49 @@ user_query = st.text_input("Ask your financial question (e.g., 'BTC price analys
 # Process Query Button
 if st.button("Get Report"):
     if user_query:
-        # Invoke the AI agent
         state = app.invoke({"user_query": user_query})
 
         # Display Price Analyst Report
-        st.subheader("📈 Price Analyst Report")
-        price_report = state.get("price_analyst_report", "No report available")
-        for line in price_report.split("\n"):
-            st.write(textwrap.fill(line, 80))
+        if ticker_check(state) == "yes":
+            st.subheader("📈 Price Analyst Report")
+            price_report = state.get("price_analyst_report", "No report available")
+            for line in price_report.split("\n"):
+                st.write(textwrap.fill(line, 80))
 
-        # Display News Analyst Report
-        st.subheader("📰 News Analyst Report")
-        news_report = state.get("news_analyst_report", "No report available")
-        for line in news_report.split("\n"):
-            st.write(textwrap.fill(line, 80))
+            # Display News Analyst Report
+            st.subheader("📰 News Analyst Report")
+            news_report = state.get("news_analyst_report", "No report available")
+            for line in news_report.split("\n"):
+                st.write(textwrap.fill(line, 80))
 
-        # Display Final Report
-        report = state.get("final_report", {})
+            # Display Final Report
+            report = state.get("final_report", {})
 
-        if report:
-            st.subheader("📊 Final Report")
-            # st.write(type(report))
-            # print(report)
-            st.write(f"**Action:** {report.action}")
-            st.write(f"**Score:** {report.score}")
-            st.write(f"**Trend:** {report.trend}")
-            st.write(f"**Sentiment:** {report.sentiment}")
+            if report:
+                st.subheader("📊 Final Report")
+                # st.write(type(report))
+                # print(report)
+                st.write(f"**Action:** {report.action}")
+                st.write(f"**Score:** {report.score}")
+                st.write(f"**Trend:** {report.trend}")
+                st.write(f"**Sentiment:** {report.sentiment}")
 
-            st.subheader("🔮 Price Predictions (4 Weeks Ahead)")
-            st.write(report.get("price_predictions", "No predictions available"))
+                st.subheader("🔮 Price Predictions (4 Weeks Ahead)")
+                st.write(report.price_predictions)
 
-            st.subheader("📃 Summary")
-            st.write(textwrap.fill(report.summary))
+                st.subheader("📃 Summary")
+                st.write(textwrap.fill(report.summary))
+                st.subheader("Final Answer")
+                st.write(state["final_response"])
+            else:
+                st.error("No final report available.")
         else:
-            st.error("No final report available.")
+            st.subheader("Final Answer")
+            st.write(state["final_response"])
+
     else:
         st.error("Please enter a query.")
+
 
 # Footer
 st.markdown("---")
