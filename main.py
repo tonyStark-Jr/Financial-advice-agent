@@ -9,6 +9,8 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from duckduckgo_search import DDGS
 from langgraph.prebuilt import tools_condition, ToolNode
 import warnings
+from PIL import Image
+
 
 warnings.filterwarnings("ignore")
 
@@ -282,6 +284,7 @@ graph.add_conditional_edges(
     ticker_check,
     {"yes": "price_retriever", "no": "final_answer"},
 )
+
 # graph.add_conditional_edges(
 #     "final_answer",
 #     # If the latest message (result) from node reasoner is a tool call -> tools_condition routes to tools
@@ -289,8 +292,12 @@ graph.add_conditional_edges(
 #     tools_condition,
 # )
 # graph.add_edge("tools", "final_answer")
+graph.add_edge("price_retriever", "news_retriever")
+# graph.add_edge("price_analyst", "news_retriever")
+# graph.add_edge("news_retriever", "news_analyst")
+# graph.add_edge("news_analyst", "financial_reporter")
+# graph.add_edge("financial_reporter", "final_answer")
 graph.add_edge("price_retriever", "price_analyst")
-graph.add_edge("price_analyst", "news_retriever")
 graph.add_edge("news_retriever", "news_analyst")
 graph.add_edge("news_analyst", "financial_reporter")
 graph.add_edge("financial_reporter", "final_answer")
