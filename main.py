@@ -344,12 +344,12 @@ if st.button("Get Report"):
                 st.subheader("📃 Summary")
                 st.write(textwrap.fill(report.summary))
                 st.subheader("Final Answer")
-                st.write(state["final_response"])
+                st.write(state["final_response"][-1].content)
             else:
                 st.error("No final report available.")
         else:
             st.subheader("Final Answer")
-            st.write(state["final_response"])
+            st.write(state["final_response"][-1].content)
 
     else:
         st.error("Please enter a query.")
