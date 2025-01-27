@@ -64,7 +64,6 @@ All dependencies are listed in the requirements.txt file. These include:
 
 ## Folder Structure
 
-.
 ├── main.py                 # Entry point for the Streamlit app
 ├── requirements.txt        # Project dependencies
 ├── README.md               # Project documentation
