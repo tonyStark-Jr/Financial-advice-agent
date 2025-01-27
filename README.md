@@ -33,21 +33,19 @@ For detailed architecture, refer to the diagram included in this repository.
 
 ### Installation
 	1.	Clone the repository:
-```
+
 git clone <repository_url>
 cd Financial-advice-agent
-```
 
 	2.	Install the required dependencies:
-```
+
 pip install -r requirements.txt
 
-```
 	3.      ADD your Groq and openbb api keys either in .env file or edit the main.py at line number 28 and 30.
 	4.	Run the Streamlit application:
-```
+
 streamlit run main.py
-```
+
 
 
 
