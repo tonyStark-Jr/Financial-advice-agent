@@ -3,6 +3,7 @@
 
 Financial Advice Agent is an AI-powered assistant built using LangGraph. It provides financial insights by analyzing cryptocurrency prices and relevant news articles. The architecture is designed for modularity and efficiency, leveraging AI-powered tools for extracting, retrieving, analyzing, and reporting financial data.
 
+Demo Video: https://drive.google.com/file/d/1tyWOZQREJmiFv3hwWhUyIBVjKFd1i0p7/view?usp=sharing
 ## Architecture Overview
 
 ### The workflow of the Financial Advice Agent is as follows:
@@ -42,10 +43,13 @@ cd Financial-advice-agent
 pip install -r requirements.txt
 
 ```
-	3.	Run the Streamlit application:
+	3.      ADD your Groq and openbb api keys either in .env file or edit the main.py at line number 28 and 30.
+	4.	Run the Streamlit application:
 ```
 streamlit run main.py
 ```
+
+
 
 
 ## Usage
