@@ -62,11 +62,4 @@ All dependencies are listed in the requirements.txt file. These include:
 	•	Streamlit (for the user interface)
 	•	Other essential libraries for data retrieval, NLP, and analysis
 
-## Folder Structure
 
-├── main.py                 # Entry point for the Streamlit app
-├── requirements.txt        # Project dependencies
-├── README.md               # Project documentation
-├── utils/                  # Helper functions and utilities
-├── models/                 # AI models and analysis scripts
-└── assets/                 # Architecture diagram and other resources
