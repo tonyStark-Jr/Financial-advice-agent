@@ -14,6 +14,8 @@ Demo Video: https://drive.google.com/file/d/1tyWOZQREJmiFv3hwWhUyIBVjKFd1i0p7/vi
 5. Price Analyst: Assesses cryptocurrency price trends and patterns.
 6. Financial Reporter: Combines insights from news and price analysis to generate a comprehensive financial summary.
 7. Final Answer: Delivers the final financial report or advice to the user.
+
+
 ![image](./graph.png)
 
 For detailed architecture, refer to the diagram included in this repository.
